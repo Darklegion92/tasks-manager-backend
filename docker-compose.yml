@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - backend-network
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    restart: always
+    ports:
+      - "3001:3001"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/auth-service
+      - JWT_SECRET=your-secret-key
+      - PORT=3001
+    depends_on:
+      - mongodb
+    networks:
+      - backend-network
+    volumes:
+    - ./auth-service:/app
+
+  task-service:
+    build:
+      context: ./task-service
+      dockerfile: Dockerfile
+    container_name: task-service
+    restart: always
+    ports:
+      - "3002:3002"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/task-service
+      - JWT_SECRET=your-secret-key
+      - PORT=3002
+    depends_on:
+      - mongodb
+    networks:
+      - backend-network
+    volumes:
+    - ./task-service:/app
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - TASK_SERVICE_URL=http://task-service:3002
+      - JWT_SECRET=your-secret-key
+      - PORT=3000
+    depends_on:
+      - auth-service
+      - task-service
+    networks:
+      - backend-network
+    volumes:
+    - ./api-gateway:/app
+
+networks:
+  backend-network:
+    driver: bridge
+  frontend-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
